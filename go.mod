@@ -5,7 +5,6 @@ go 1.24.0
 require (
 	github.com/json-iterator/go v1.1.12
 	github.com/prometheus/client_golang v1.21.0
-	github.com/sirupsen/logrus v1.9.3
 )
 
 require (

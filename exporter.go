@@ -1,8 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"flag"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"sync"
@@ -10,8 +11,10 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
 )
+
+var logLevel = new(slog.LevelVar)
+var log = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}))
 
 // FactorioCollector collects metrics from the Factorio JSON file.
 type FactorioCollector struct {
@@ -35,7 +38,7 @@ func (c *FactorioCollector) Collect(ch chan<- prometheus.Metric) {
 	// Read the metrics data from the JSON file.
 	err := c.readMetricsData()
 	if err != nil {
-		log.Errorf("Error reading metrics data: %v", err)
+		log.Error("Error reading metrics data", "error", err)
 		return
 	}
 
@@ -244,18 +247,10 @@ func main() {
 	// Get the metrics path and port from the command line.
 	flag.Parse()
 
-	// Set up logging.
-	log.SetFormatter(&log.TextFormatter{
-		FullTimestamp: true,
-	})
-	log.SetOutput(os.Stdout)
-
 	if *verbose {
-		log.SetLevel(log.DebugLevel)
-	} else {
-		log.SetLevel(log.InfoLevel)
+		logLevel.Set(slog.LevelDebug)
 	}
-	
+
 	// Create a new FactorioCollector.
 	collector := &FactorioCollector{
 		metricsPath: *metricsPath,
@@ -265,6 +260,9 @@ func main() {
 	prometheus.MustRegister(collector)
 
 	// Start the HTTP server.
-	log.Infof("Starting Prometheus exporter on %s", *metricsBind)
-	log.Fatal(http.ListenAndServe(*metricsBind, promhttp.Handler()))
+	log.Info("Starting Prometheus exporter", "interface", *metricsBind)
+	err := http.ListenAndServe(*metricsBind, promhttp.Handler())
+	if err != nil {
+		log.Error("Failed to serve", "error", err)
+	}
 }
